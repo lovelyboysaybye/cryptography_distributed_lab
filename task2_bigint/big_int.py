@@ -136,6 +136,30 @@ class BigInt:
             result.bytes[i] = byte_diff
         return result
 
+    def __mul__(self, other: "BigInt") -> "BigInt":
+        result = BigInt(base=self.base_size * 2, endian_type=self.endian_type)
+
+        # Create a temporary buffer to store intermediate results
+        buffer = [0] * (2 * self.base_size)
+
+        # Perform long multiplication digit by digit
+        for i in range(self.base_size):
+            for j in range(self.base_size):
+                product = self.bytes[i] * other.bytes[j]
+                buffer[i + j] += product
+                buffer[i + j + 1] += buffer[i + j] // 256
+                buffer[i + j] %= 256
+
+        # Reduce the buffer modulo 256 and store it in the result
+        carry = 0
+        for i in range(2 * self.base_size - 1, -1, -1):
+            carry *= 256
+            carry += buffer[i]
+            result.bytes[i] = carry % 256
+            carry //= 256
+
+        return result
+
     def __le__(self, other):
         result = True
         for i in range(self.base_size):
@@ -202,6 +226,13 @@ def test_sub(input_hex_repr_1, input_hex_repr_2, expected, endian_type, base):
     b2 = BigInt(hex_repr=input_hex_repr_2, endian_type=endian_type, base=base)
     result = b1 - b2
     assert result.getHex() == expected, f"Error for {input_hex_repr_1} - {input_hex_repr_2}. Output is {result.getHex()}"
+
+
+def test_mul(input_hex_repr_1, input_hex_repr_2, expected, endian_type, base):
+    b1 = BigInt(hex_repr=input_hex_repr_1, endian_type=endian_type, base=base)
+    b2 = BigInt(hex_repr=input_hex_repr_2, endian_type=endian_type, base=base)
+    result = b1 * b2
+    assert result.getHex() == expected, f"Error for {input_hex_repr_1} * {input_hex_repr_2}. Output is {result.getHex()}"
 
 
 if __name__ == "__main__":
@@ -283,3 +314,9 @@ if __name__ == "__main__":
             "22e962951cb6cd2ce279ab0e2095825c141d48ef3ca9dabf253e38760b57fe03",
             "10e570324e6ffdbc6b9c813dec968d9bad134bc0dbb061530934f4e59c2700b9", EndianType.BIG_ENDIAN_TYPE,
             base=Base.BASE_32)
+
+    test_mul("0000000000000000000000000000000000000000000000000000000000000002",
+             "0000000000000000000000000000000000000000000000000000000000000002",
+             "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400", EndianType.BIG_ENDIAN_TYPE,
+            base=Base.BASE_32)
+
