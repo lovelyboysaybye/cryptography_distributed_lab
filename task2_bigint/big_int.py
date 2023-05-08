@@ -19,30 +19,33 @@ class Base(IntEnum):
 
 
 class BigInt:
+    MAX_BYTE_VAL = 16
+
     def __init__(self, base: Base = Base.BASE_32, endian_type: EndianType = EndianType.BIG_ENDIAN_TYPE, hex_repr: str = None):
         self.base_size = base
         self.endian_type = endian_type
-        self.value = 0
+        self.bytes = [0] * self.base_size
         if hex_repr:
             self.setHex(hex_repr)
 
     def getHex(self):
-        hex_repr = hex(self.value)[2:]
+        hex_repr = ""
+        for bytes_idx in range(0, self.base_size):
+            hex_byte_repr = hex(self.bytes[bytes_idx])[2:]
+            if len(hex_byte_repr) % 2 == 1:
+                hex_byte_repr = "0" + hex_byte_repr
+            hex_repr += hex_byte_repr
 
         if self.endian_type == EndianType.LITTLE_ENDIAN_TYPE:
             hex_repr = BigInt.hex_to_little_endian(hex_repr)
-        hex_len = len(hex_repr)
-        if hex_len % 2 == 1:
-            hex_repr = "0" + hex_repr
-            hex_len += 1
-        hex_repr += "00" * (self.base_size - len(hex_repr) // 2)
         return hex_repr
 
     def setHex(self, hex_repr: str):
         if self.endian_type == EndianType.LITTLE_ENDIAN_TYPE:
             hex_repr = BigInt.hex_to_little_endian(hex_repr)
 
-        self.value = int(hex_repr, base=16)
+        for bytes_idx in range(0, self.base_size):
+            self.bytes[bytes_idx] = int(hex_repr[bytes_idx * 2:bytes_idx * 2 + 2], base=16)
 
     @staticmethod
     def hex_to_little_endian(hex_repr: str) -> str:
@@ -60,33 +63,85 @@ class BigInt:
         return self.__str__()
 
     def __and__(self, other):
-        return BigInt(base=self.base_size, endian_type=self.endian_type, hex_repr=hex(self.value & other.value)[2:])
+        result = BigInt(base=self.base_size, endian_type=self.endian_type)
+        for bytes_idx in range(0, self.base_size):
+            result.bytes[bytes_idx] = self.bytes[bytes_idx] & other.bytes[bytes_idx]
+
+        return result
 
     def __or__(self, other):
-        return BigInt(base=self.base_size, endian_type=self.endian_type, hex_repr=hex(self.value | other.value)[2:])
+        result = BigInt(base=self.base_size, endian_type=self.endian_type)
+        for bytes_idx in range(0, self.base_size):
+            result.bytes[bytes_idx] = self.bytes[bytes_idx] | other.bytes[bytes_idx]
+
+        return result
 
     def __xor__(self, other):
-        return BigInt(base=self.base_size, endian_type=self.endian_type, hex_repr=hex(self.value ^ other.value)[2:])
+        result = BigInt(base=self.base_size, endian_type=self.endian_type)
+        for bytes_idx in range(0, self.base_size):
+            result.bytes[bytes_idx] = self.bytes[bytes_idx] ^ other.bytes[bytes_idx]
+
+        return result
 
     def __invert__(self):
-        value_mask = (1 << self.base_size * 8) - 1
-        inverted = (~self.value) & value_mask
-        hex_repr = hex(inverted)[2:].zfill(self.base_size * 2)
-        if self.endian_type == EndianType.LITTLE_ENDIAN_TYPE:
-            hex_repr = BigInt.hex_to_little_endian(hex_repr)
-        return BigInt(base=self.base_size, endian_type=self.endian_type, hex_repr=hex_repr)
+        result = BigInt(base=self.base_size, endian_type=self.endian_type)
+        for bytes_idx in range(0, self.base_size):
+            result.bytes[bytes_idx] = BigInt.MAX_BYTE_VAL - self.bytes[bytes_idx]
+
+        return result
 
     def __lshift__(self, other):
-        return BigInt(base=self.base_size, endian_type=self.endian_type, hex_repr=hex(self.value << other)[2:])
+        result = BigInt(base=self.base_size, endian_type=self.endian_type)
+        byte_shifts, bit_shifts = divmod(other, 8)
+
+        for i in range(0, self.base_size - byte_shifts):
+            shifted_byte = self.bytes[i + byte_shifts] << bit_shifts
+            if i + byte_shifts + 1 < self.base_size and bit_shifts > 0:
+                shifted_byte |= self.bytes[i + byte_shifts + 1] >> (8 - bit_shifts)
+            result.bytes[i] = shifted_byte
+
+        return result
 
     def __rshift__(self, other):
-        return BigInt(base=self.base_size, endian_type=self.endian_type, hex_repr=hex(self.value >> other)[2:])
+        result = BigInt(base=self.base_size, endian_type=self.endian_type)
+        byte_shifts, bit_shifts = divmod(other, 8)
+
+        for i in range(byte_shifts, self.base_size):
+            shifted_byte = self.bytes[i - byte_shifts] >> bit_shifts
+            if i - byte_shifts - 1 >= 0 and bit_shifts > 0:
+                shifted_byte |= self.bytes[i - byte_shifts - 1] << (8 - bit_shifts)
+            result.bytes[i] = shifted_byte
+
+        return result
 
     def __add__(self, other):
-        return BigInt(base=self.base_size, endian_type=self.endian_type, hex_repr=hex(self.value + other.value)[2:])
+        result = BigInt(base=self.base_size, endian_type=self.endian_type)
+        carry = 0
+        for i in range(self.base_size - 1, -1, -1):
+            byte_sum = self.bytes[i] + other.bytes[i] + carry
+            result.bytes[i] = byte_sum % 256
+            carry = byte_sum // 256
+        return result
 
     def __sub__(self, other):
-        return BigInt(base=self.base_size, endian_type=self.endian_type, hex_repr=hex(self.value - other.value)[2:])
+        result = BigInt(base=self.base_size, endian_type=self.endian_type)
+        borrow = 0
+        for i in range(self.base_size - 1, -1, -1):
+            byte_diff = self.bytes[i] - other.bytes[i] - borrow
+            if byte_diff < 0:
+                byte_diff += 256
+                borrow = 1
+            else:
+                borrow = 0
+            result.bytes[i] = byte_diff
+        return result
+
+    def __le__(self, other):
+        result = True
+        for i in range(self.base_size):
+            if self.bytes[i] > other.bytes[i]:
+                result = False
+        return result
 
 
 def test_set_get_hex(input_hex_repr, endian_type):
@@ -151,6 +206,7 @@ def test_sub(input_hex_repr_1, input_hex_repr_2, expected, endian_type, base):
 
 if __name__ == "__main__":
     # Hex tests
+    test_set_get_hex("0100000000000000000000000000000000000000000000000000000000000000", EndianType.BIG_ENDIAN_TYPE)
     test_set_get_hex("0100000000000000000000000000000000000000000000000000000000000000", EndianType.LITTLE_ENDIAN_TYPE)
 
     test_set_get_hex("ff00000000000000000000000000000000000000000000000000000000000000", EndianType.LITTLE_ENDIAN_TYPE)
@@ -184,9 +240,9 @@ if __name__ == "__main__":
 
     # Invert operation
     test_inv("0100000000000000000000000000000000000000000000000000000000000000",
-            "feffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", EndianType.LITTLE_ENDIAN_TYPE,
+            "0f10101010101010101010101010101010101010101010101010101010101010", EndianType.LITTLE_ENDIAN_TYPE,
             base=Base.BASE_32)
-    test_inv("feffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    test_inv("0f10101010101010101010101010101010101010101010101010101010101010",
             "0100000000000000000000000000000000000000000000000000000000000000", EndianType.LITTLE_ENDIAN_TYPE,
             base=Base.BASE_32)
 
@@ -200,12 +256,13 @@ if __name__ == "__main__":
 
     # RShift operation
     test_rshift("0100000000000000000000000000000000000000000000000000000000000000",
-                "8000000000000000000000000000000000000000000000000000000000000000",
+                "0080000000000000000000000000000000000000000000000000000000000000",
                 1, EndianType.BIG_ENDIAN_TYPE, Base.BASE_32)
     test_rshift("0100000000000000000000000000000000000000000000000000000000000000",
-                "4000000000000000000000000000000000000000000000000000000000000000",
+                "0040000000000000000000000000000000000000000000000000000000000000",
                 2, EndianType.BIG_ENDIAN_TYPE, Base.BASE_32)
 
+    # Add operator
     test_add("0100000000000000000000000000000000000000000000000000000000000000",
             "2600000000000000000000000000000000000000000000000000000000000000",
             "2700000000000000000000000000000000000000000000000000000000000000", EndianType.LITTLE_ENDIAN_TYPE,
@@ -216,7 +273,13 @@ if __name__ == "__main__":
             "2700000000000000000000000000000000000000000000000000000000000000", EndianType.LITTLE_ENDIAN_TYPE,
             base=Base.BASE_32)
 
-    test_sub("2600000000000000000000000000000000000000000000000000000000000000",
-            "0100000000000000000000000000000000000000000000000000000000000000",
-            "2500000000000000000000000000000000000000000000000000000000000000", EndianType.LITTLE_ENDIAN_TYPE,
+    test_add("36f028580bb02cc8272a9a020f4200e346e276ae664e45ee80745574e2f5ab80",
+            "70983d692f648185febe6d6fa607630ae68649f7e6fc45b94680096c06e4fadb",
+            "a78865c13b14ae4e25e90771b54963ee2d68c0a64d4a8ba7c6f45ee0e9daa65b", EndianType.BIG_ENDIAN_TYPE,
+            base=Base.BASE_32)
+
+    # Sub operator
+    test_sub("33ced2c76b26cae94e162c4c0d2c0ff7c13094b0185a3c122e732d5ba77efebc",
+            "22e962951cb6cd2ce279ab0e2095825c141d48ef3ca9dabf253e38760b57fe03",
+            "10e570324e6ffdbc6b9c813dec968d9bad134bc0dbb061530934f4e59c2700b9", EndianType.BIG_ENDIAN_TYPE,
             base=Base.BASE_32)
