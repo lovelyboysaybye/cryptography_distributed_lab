@@ -1,5 +1,8 @@
 ## S-box and P-box implementation by scratch
 
+Google doc for detailed explanation:
+https://docs.google.com/document/d/1jgJL-BWWcygMQKQfzWOu1zcnd3IVThe3vmKdm1R9roQ/edit?usp=sharing
+
 For S-box implementation used encryption and decryption tables from the Rijndael S-box (https://en.wikipedia.org/wiki/Rijndael_S-box).
 For S-box implementation, input 8-bit value splitted for two 4bit value from left to the right
 ```
