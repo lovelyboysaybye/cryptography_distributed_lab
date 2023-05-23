@@ -125,8 +125,9 @@ class SequenceLengthTest:
         previous_bit = None # Tmp variable to save previous bit value
 
         # Recalculate expected values to our length of bytes
-        my_expected_length = {key: {SequenceLengthTest.MIN_KEY: int(value[SequenceLengthTest.MIN_KEY] * len(bits_array) / 10000), SequenceLengthTest.MAX_KEY: int(value[SequenceLengthTest.MAX_KEY] * len(bits_array) / 10000)} for key, value in SequenceLengthTest.EXPECTED_LENGHT.items()}
-        seq_len_dict = {i: 0 for i in range(1, SequenceLengthTest.MAX_SEQ_VAL + 1)}
+        my_expected_length = {key: {SequenceLengthTest.MIN_KEY: int(value[SequenceLengthTest.MIN_KEY] * len(bits_array) / 20000), SequenceLengthTest.MAX_KEY: int(value[SequenceLengthTest.MAX_KEY] * len(bits_array) / 20000)} for key, value in SequenceLengthTest.EXPECTED_LENGHT.items()}
+        seq_len_dict_ones = {i: 0 for i in range(1, SequenceLengthTest.MAX_SEQ_VAL + 1)}
+        seq_len_dict_zeros = {i: 0 for i in range(1, SequenceLengthTest.MAX_SEQ_VAL + 1)}
 
         for bit in bits_array:
             if bit == previous_bit:
@@ -134,19 +135,28 @@ class SequenceLengthTest:
             else:
                 previous_bit = bit
                 if current_length < SequenceLengthTest.MAX_SEQ_VAL:
-                    seq_len_dict[current_length] += 1
+                    if previous_bit == 1:
+                        seq_len_dict_ones[current_length] += 1
+                    else:
+                        seq_len_dict_zeros[current_length] += 1
                 else:
-                    seq_len_dict[SequenceLengthTest.MAX_SEQ_VAL] += 1
+                    if previous_bit == 1:
+                        seq_len_dict_ones[SequenceLengthTest.MAX_SEQ_VAL] += 1
+                    else:
+                        seq_len_dict_zeros[SequenceLengthTest.MAX_SEQ_VAL] += 1
 
                 current_length = 1
 
         output_flag = True
-        for key_seq in seq_len_dict.keys():
+        for key_seq in seq_len_dict_ones.keys():
             expected_min, expected_max = my_expected_length[key_seq][SequenceLengthTest.MIN_KEY], my_expected_length[key_seq][SequenceLengthTest.MAX_KEY]
-            current_val = seq_len_dict[key_seq]
-            if not (expected_min < current_val < expected_max):
+            current_val_ones = seq_len_dict_ones[key_seq]
+            current_val_zeros = seq_len_dict_zeros[key_seq]
+
+            if not (expected_min < current_val_ones < expected_max) or not (expected_min < current_val_zeros < expected_max):
                 output_flag = False
                 break
+
         return output_flag
 
 
