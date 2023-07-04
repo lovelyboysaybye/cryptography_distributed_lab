@@ -1,3 +1,4 @@
+import random
 from ecpy.curves import Curve, Point, ECPyException
 
 
@@ -9,27 +10,31 @@ class ECCPoint:
 
 
 class ECCWrapper:
+    """
+    ECCWrapper class to use ECPy library
+    """
     def __init__(self, curve_name):
+        """
+        Initializes the ECCWrapper object.
+        :param curve_name: name of curve that used
+        """
         self.curve_name = curve_name
         self.curve = Curve.get_curve(curve_name)
 
     def ec_point_gen(self, x, y):
+        """
+        Initializes ECCPoint with x and y on a curve.
+        :param x: x of point
+        :param y: y of point
+        """
         return ECCPoint(x, y, self.curve_name)
 
-    def get_y_coordinate(self, x_coordinate):
-        try:
-            # Create a point object with the x-coordinate
-            point = Point(x_coordinate, self.curve(x_coordinate), self.curve)
-            # Check if the point is on the curve
-            if not self.curve.is_on_curve(point):
-                raise ECPyException("The point is not on the curve.")
-            # Return the y-coordinate of the point
-            return point.y
-        except ECPyException as e:
-            print(f"Error: {str(e)}")
-            return None
-
     def is_on_curve_check(self, point):
+        """
+        Checks if point placed on Curve or not.
+        :param point: Point object with x and y coordinates
+        :return: True if Point on curve otherwise False
+        """
         try:
             res = self.curve.is_on_curve(Point(point.x, point.y, self.curve))
         except ECPyException:
@@ -37,30 +42,91 @@ class ECCWrapper:
         return res
 
     def add_ec_points(self, point_a, point_b):
+        """
+        Adds Point_A to Point_B
+        :param point_a: first point
+        :param point_b: second point
+        :return: created after addition Point
+        """
         result = self.curve.add_point(Point(point_a.x, point_a.y, self.curve), Point(point_b.x, point_b.y, self.curve))
         return ECCPoint(result.x, result.y, self.curve_name)
 
     def double_ec_point(self, point):
+        """
+        Multiplies point by 2.
+        :param point: point to multiplication
+        :return: new point as a result of point * 2
+        """
         result = self.curve._mul_point(2, Point(point.x, point.y, self.curve))
         return ECCPoint(result.x, result.y, self.curve_name)
 
     def scalar_mult(self, k, point):
+        """
+        Multiplies point by k times
+        :param point: point to multiplication on scalar
+        :param k: scalar value how many time multiply point
+        :return: new point as a result of point * K
+        """
         result = self.curve._mul_point(k, Point(point.x, point.y, self.curve))
         return ECCPoint(result.x, result.y, self.curve_name)
 
     def ec_point_to_string(self, point):
+        """
+        Returns string representation of point.
+        :param point: point to represent
+        :return: str
+        """
         return f"({point.x}, {point.y})"
 
     def string_to_ec_point(self, s):
+        """
+        Converts string to point.
+        :param s: string representation of point
+        :return: ECCPoint object of string represented point
+        """
         x, y = map(int, s.strip("()").split(","))
         return ECCPoint(x, y, self.curve_name)
 
     def print_ec_point(self, point):
-        print(f"({point.x}, {point.y})")
+        self.ec_point_to_string(point)
 
     def base_point_get(self):
+        """
+        Returns base point of curve
+        :return: Base point of curve
+        """
         generator = self.curve.generator
         return ECCPoint(generator.x, generator.y, self.curve_name)
+
+    def generate_key_pair(self, seed=3):
+        """
+        Generates private and public key. Private key is randomly by provided seed
+        :param seed: seed for randomizer
+        :return: private and public key
+        """
+        private_key = self.generate_private_key(seed=seed)
+        public_key = self.calculate_public_key(private_key)
+        return private_key, public_key
+
+    def generate_private_key(self, seed=3):
+        """
+        Generates private key. Private key is randomly by provided seed
+        :param seed: seed for randomizer
+        :return: private
+        """
+        random.seed(seed)
+        private_key = random.randint(1, self.curve.order - 1)
+        return private_key
+
+    def calculate_public_key(self, private_key):
+        """
+        Calculates the public key from private_key.
+        :param private_key: private key
+        :return: public key
+        """
+        base_point = self.curve.generator
+        public_key = self.curve.mul_point(private_key, base_point)
+        return ECCPoint(public_key.x, public_key.y, self.curve_name)
 
 
 if __name__ == "__main__":
@@ -122,3 +188,23 @@ if __name__ == "__main__":
     # Print an EC point
     print("\nPrint EC Point:")
     wrapper.print_ec_point(point1)
+
+    # Generate a key pair
+    private_key, public_key = wrapper.generate_key_pair()
+    print("\nGenerated Key Pair:")
+    print("Private Key:", private_key)
+    print("Public Key:")
+    print(f"X: {public_key.x}")
+    print(f"Y: {public_key.y}")
+    print("Curve:", public_key.curve_name)
+
+    # Generate a private key
+    private_key = wrapper.generate_private_key(seed=12345)
+    print("\nGenerated Private Key:", private_key)
+
+    # Calculate the corresponding public key
+    public_key = wrapper.calculate_public_key(private_key)
+    print("Calculated Public Key:")
+    print(f"X: {public_key.x}")
+    print(f"Y: {public_key.y}")
+    print("Curve:", public_key.curve_name)
