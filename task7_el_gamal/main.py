@@ -352,8 +352,6 @@ if __name__ == "__main__":
 
     print(f"Does original message equal to encrypted {mess == decrypted_text}")
 
-
-
     print(f"\n\n1. Test: Encrypt and decrypt by original priv and pub key pairs\nOriginal message: {message}")
 
     encrypted_text_c1_c2 = elgamel_obj.encrypt(pub_key, message)
@@ -372,6 +370,17 @@ if __name__ == "__main__":
     wrong_priv_key = priv_key + 10
     print(f"Orig priv key: {priv_key}; Wrong priv_key: {wrong_priv_key}")
     decrypted_text = elgamel_obj.decrypt(wrong_priv_key, encrypted_text_c1_c2)
+    print(f"Encrypted message: {decrypted_text}")
+
+    print(f"Does original message equal to encrypted {message == decrypted_text}")
+
+    message = "Distribution lab the best!" * 1000
+    print(f"\n\n3. Test: Encrypt and decrypt by original priv and pub key pairs\nOriginal message: {message}")
+
+    encrypted_text_c1_c2 = elgamel_obj.encrypt(pub_key, message)
+    print(f"Encrypted message (two components): {encrypted_text_c1_c2}")
+
+    decrypted_text = elgamel_obj.decrypt(priv_key, encrypted_text_c1_c2)
     print(f"Encrypted message: {decrypted_text}")
 
     print(f"Does original message equal to encrypted {message == decrypted_text}")
